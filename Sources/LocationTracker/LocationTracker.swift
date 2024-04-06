@@ -84,9 +84,17 @@ extension LocationTracker {
     fileprivate func setupLocationManager() {
         locationManager.delegate = self
         
-        if !CLLocationManager.locationServicesEnabled() {
-            locationManager.requestWhenInUseAuthorization()
+#if os(iOS)
+        if CLLocationManager.locationServicesEnabled() &&
+            locationManager.authorizationStatus != .authorizedWhenInUse {
+                locationManager.requestWhenInUseAuthorization()
+            }
+#elseif os(macOS)
+        if CLLocationManager.locationServicesEnabled() &&
+            locationManager.authorizationStatus != .authorizedAlways {
+            locationManager.requestAlwaysAuthorization()
         }
+#endif
         print(#function)
     }
 }
