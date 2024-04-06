@@ -11,7 +11,9 @@ public class LocationTracker: NSObject {
     private let locationManager = CLLocationManager()
     private var cancellable: Cancellable?
     private var continuation: CheckedContinuation<LocationData, Error>?
-    
+    private var canSendLocation: Bool {
+        api.isAuthorized && CLLocationManager.locationServicesEnabled()
+    }
     // Public
     public static let shared = LocationTracker()
     public var configuration = Configuration() {
@@ -30,12 +32,8 @@ public class LocationTracker: NSObject {
         do {
             try await api.sendRequest(endpointType: .auth)
             setupLocationManager()
-            if CLLocationManager.locationServicesEnabled() {
-                cancellable = Timer.publish(every: configuration.trackingPeriod, on: .main, in: .default)
-                    .autoconnect()
-                    .sink { [weak self] _ in
-                        self?.scheduleSendingLocation()
-                    }
+            if canSendLocation {
+                scheduleLocationUpdates()
             }
         } catch TrackerError.authFailed {
             print("auth error occured")
@@ -45,16 +43,18 @@ public class LocationTracker: NSObject {
     }
 
     public func sendCurrentLocation() async {
-        if api.isAuthorized {
+        if canSendLocation {
             do {
                 let locationData = try await getCurrentLocation()
                 
+                print("trying to send location from \(#function)")
                 try await api.sendRequest(endpointType: .location, locationData: locationData)
             } catch {
                 print("error in 'sendCurrentLocation' occured: \(error)")
             }
         } else {
             do {
+                print("trying to authentificate from \(#function)")
                 try await api.sendRequest(endpointType: .auth)
             } catch {
                 print("error in auth request in 'sendCurrentLocation' occured: \(error)")
@@ -62,24 +62,35 @@ public class LocationTracker: NSObject {
         }
     }
     
-    private func scheduleSendingLocation() {
+    fileprivate func scheduleLocationUpdates() {
+        cancellable = Timer.publish(every: configuration.trackingPeriod, on: .main, in: .default)
+            .autoconnect()
+            .sink { [weak self] _ in
+                self?.scheduleSendingLocation()
+            }
+    }
+    
+    fileprivate func scheduleSendingLocation() {
         Task {
             await sendCurrentLocation()
         }
+        print(#function)
     }
     
-    private func getCurrentLocation() async throws -> LocationData {
+    fileprivate func getCurrentLocation() async throws -> LocationData {
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<LocationData, Error>) in
             self.continuation = continuation
             if CLLocationManager.locationServicesEnabled() {
                 locationManager.requestLocation()
             }
+            print(#function)
         }
     }
     
-    private func setupLocationManager() {
+    fileprivate func setupLocationManager() {
         locationManager.delegate = self
         locationManager.requestWhenInUseAuthorization()
+        print(#function)
     }
 }
 

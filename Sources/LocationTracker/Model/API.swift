@@ -55,6 +55,8 @@ class API {
 //                } else {
                 switch endpointType {
                 case .auth:
+                    print("auth response data: \(String(data: data, encoding: .utf8) ?? "")")
+                    
                     let decodedResponse = try JSONDecoder().decode(AuthResponse.self, from: data)
                     token = decodedResponse.token
                     isAuthorized = true
