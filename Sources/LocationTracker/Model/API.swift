@@ -8,17 +8,38 @@
 import Foundation
 
 class API {
-    
-    // TODO: send requests on specific named queue
-    
     private var token: Token?
     
-    public var isAuthorized: Bool = false
+    public var isAuthorized: Bool {
+        if let token = token, token.expirationDate < Date() {
+            return true
+        }
+        return false
+    }
     
-    func sendRequest(endpointType: EndpointType, locationData: LocationData? = nil) async throws {
+    public func refreshToken() async {
+        if let token = token, token.expirationDate >= Date() {
+            await sendRequest(endpointType: .refreshSession)
+        } else {
+            await sendRequest(endpointType: .auth)
+        }
+    }
+    
+    public func sendLocation(_ locationData: LocationData) async {
+        if !isAuthorized {
+            await refreshToken()
+        }
+        await sendRequest(endpointType: .location, locationData: locationData)
+        print("trying to authentificate from \(#function)")
+    }
+    
+    public func sendRequest(endpointType: EndpointType, locationData: LocationData? = nil) async {
         
-        guard let url = URL(string: Constants.ConfigValues.endpoint + endpointType.rawValue) else { return }
-
+        guard let url = URL(string: Constants.ConfigValues.endpoint + endpointType.rawValue) else {
+            print("Can't create URL for endpoint:\(Constants.ConfigValues.endpoint)\(endpointType.rawValue) ")
+            return
+        }
+        
         Task {
             var request: URLRequest?
             switch endpointType {
@@ -27,65 +48,46 @@ class API {
             case .refreshSession:
                 if let refreshToken = token?.refreshToken {
                     request = RequestGenerator.refreshRequest(url: url, refreshToken: refreshToken)
-                } else {
-                    // auth again!
                 }
             case .location:
-                if let authToken = token?.accessToken, let locationData = locationData { // check expiration DATE
+                if let authToken = token?.accessToken, let locationData = locationData {
                     request = RequestGenerator.locationRequest(url: url, token: authToken, location: locationData)
                 }
             }
-        
+            
             guard let request = request else {
                 throw ResponseError.invalidRequest
             }
             
             do {
                 let (data, response) = try await URLSession.shared.data(for: request)
-                guard let httpResponse = response as? HTTPURLResponse, (200..<299).contains(httpResponse.statusCode) else {
-                    
+                guard let httpResponse = response as? HTTPURLResponse else {
                     print("response = \(String(describing: response))")
                     throw ResponseError.invalidServerResponse
                 }
                 
-
-//                if httpResponse.statusCode == 401 {
-//                    try await refreshToken()
-//                    await sendRequest(endpointType: endpointType, locationData: locationData, completion: completion)
-//                } else {
-                switch endpointType {
-                case .auth:
-                    print("auth response data: \(String(data: data, encoding: .utf8) ?? "")")
+                if !(200..<299).contains(httpResponse.statusCode) {
+                    throw ResponseError.serverError(httpResponse.statusCode)
+                } else {
+                    print("response data: \(String(data: data, encoding: .utf8) ?? "")")
                     
-                    let decodedResponse = try JSONDecoder().decode(AuthResponse.self, from: data)
-                    token = decodedResponse.token
-                    isAuthorized = true
-                default:
-                    break
+                    switch endpointType {
+                    case .auth, .refreshSession:
+                        let decodedResponse = try JSONDecoder().decode(AuthResponse.self, from: data)
+                        token = decodedResponse.token
+                    case .location:
+                        _ = try JSONDecoder().decode(LocationResponse.self, from: data)
+                    }
                 }
             } catch ResponseError.invalidServerResponse {
                 print("invalidServerResponse for request: \(request)")
-//                completion(.failure(error))
+            } catch ResponseError.serverError(let code){
+                print("Server responded for request: \(request) with code: \(code)")
+            } catch ResponseError.invalidRequest {
+                print("Invalid request generated for endpoint: \(endpointType)")
             } catch {
-                print("Unexpected error: \(error).")
+                print("Unexpected error: \(error) executing request: \(request) .")
             }
         }
     }
-      
-      // MARK: - Private Methods
-      
-//      private func refreshToken() async throws {
-//          // Make the API call to refresh the token
-//          // You can implement your own logic here to refresh the token using a POST request or any other method
-//          // Once you receive the new token, update the `refreshToken` property
-//          
-//          // Simulating a delay and providing a dummy new token
-//          refreshToken = "new_refresh_token"
-//          
-//          // Retry the original failed request
-//          try await withCheckedThrowingContinuation { continuation in
-//              sendRequest(method: continuation.resume, endpoint: continuation.resume, parameters: continuation.resume, completion: continuation.resume)
-//          }
-//      }
-//  }
 }

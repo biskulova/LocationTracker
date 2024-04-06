@@ -14,11 +14,33 @@ public class LocationTracker: NSObject {
     private var canSendLocation: Bool {
         api.isAuthorized && CLLocationManager.locationServicesEnabled()
     }
+    
     // Public
     public static let shared = LocationTracker()
     public var configuration = Configuration() {
         didSet {
-            // TODO: reset session & invalidate previous
+            cancellable = nil
+            scheduleLocationUpdates()
+        }
+    }
+    
+    public func initialize() async {
+        setupLocationManager()
+        
+        if !canSendLocation {
+            await api.refreshToken()
+        }
+        scheduleLocationUpdates()
+    }
+    
+    public func sendCurrentLocation() async {
+        do {
+            let locationData = try await getCurrentLocation()
+            
+            print("sending location from \(#function)")
+            await api.sendLocation(locationData)
+        } catch {
+            print("Error occured while receiving location update: \(error)")
         }
     }
     
@@ -26,51 +48,22 @@ public class LocationTracker: NSObject {
         locationManager.stopUpdatingLocation()
         cancellable = nil
         continuation = nil
+        print(#function)
     }
-    
-    public func initialize() async {
-        do {
-            try await api.sendRequest(endpointType: .auth)
-            setupLocationManager()
-            if canSendLocation {
-                scheduleLocationUpdates()
-            }
-        } catch TrackerError.authFailed {
-            print("auth error occured")
-        } catch {
-            print("error in 'initialize' occured: \(error)")
-        }
-    }
+}
 
-    public func sendCurrentLocation() async {
-        if canSendLocation {
-            do {
-                let locationData = try await getCurrentLocation()
-                
-                print("trying to send location from \(#function)")
-                try await api.sendRequest(endpointType: .location, locationData: locationData)
-            } catch {
-                print("error in 'sendCurrentLocation' occured: \(error)")
-            }
-        } else {
-            do {
-                print("trying to authentificate from \(#function)")
-                try await api.sendRequest(endpointType: .auth)
-            } catch {
-                print("error in auth request in 'sendCurrentLocation' occured: \(error)")
-            }
-        }
-    }
-    
+extension LocationTracker {
     fileprivate func scheduleLocationUpdates() {
-        cancellable = Timer.publish(every: configuration.trackingPeriod, on: .main, in: .default)
+        cancellable = Timer.publish(every: configuration.trackingPeriod, 
+                                    on: .main,
+                                    in: .default)
             .autoconnect()
             .sink { [weak self] _ in
-                self?.scheduleSendingLocation()
+                self?.provideLocation()
             }
     }
     
-    fileprivate func scheduleSendingLocation() {
+    fileprivate func provideLocation() {
         Task {
             await sendCurrentLocation()
         }
@@ -78,7 +71,8 @@ public class LocationTracker: NSObject {
     }
     
     fileprivate func getCurrentLocation() async throws -> LocationData {
-        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<LocationData, Error>) in
+        return try await withCheckedThrowingContinuation { 
+            (continuation: CheckedContinuation<LocationData, Error>) in
             self.continuation = continuation
             if CLLocationManager.locationServicesEnabled() {
                 locationManager.requestLocation()
@@ -89,7 +83,10 @@ public class LocationTracker: NSObject {
     
     fileprivate func setupLocationManager() {
         locationManager.delegate = self
-        locationManager.requestWhenInUseAuthorization()
+        
+        if !CLLocationManager.locationServicesEnabled() {
+            locationManager.requestWhenInUseAuthorization()
+        }
         print(#function)
     }
 }
@@ -118,7 +115,7 @@ extension LocationTracker: CLLocationManagerDelegate {
         self.continuation?.resume(with: .failure(error))
         self.continuation = nil
 
-        print("Location update error: \(error)")
+        print("Location update did failed error: \(error)")
     }
     
     public func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {

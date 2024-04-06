@@ -10,13 +10,5 @@ import Foundation
 enum ResponseError: Error {
     case invalidRequest
     case invalidServerResponse
-    case invalidRefreshToken
-    case invalidAccessToken
-    case parsingError
-}
-
-public enum TrackerError: Error {
-    case authFailed
-    case locationServiceForbidden
-    case refreshFailed
+    case serverError(Int)
 }

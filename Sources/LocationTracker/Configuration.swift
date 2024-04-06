@@ -16,29 +16,22 @@ enum EndpointType: String {
 enum Constants {
     enum ConfigKeys {
          static let endpoint = "httpEndpoint"
-//         static let projectId = "projectId"
          static let token = "token"
-//         static let cookies = "cookies"
      }
 
      // config default values
      enum ConfigValues {
          static let endpoint = "https://dummy-api-mobile.api.sandbox.bird.one"
-//         static let projectId = "smoketest"
          static let token = "xdk8ih3kvw2c66isndihzke5"
-//         static let cookies = "tid"
      }
     
-    static let accessToken = "accessToken";
-    static let expiresAt = "expiresAt"; //"2024-04-04T10:53:23.345Z"
-    static let refreshToken = "refreshToken";
     static let longitude = "longitude";
     static let latitude = "latitude";
 }
 
 public struct Configuration {
     let endpoint: String = Constants.ConfigValues.endpoint
-    let trackingPeriod: TimeInterval = 2000 //Date/Timestamp = 10 min
+    let trackingPeriod: TimeInterval = 60 // 1 min
 
     private let token: String = Constants.ConfigValues.token
     private let sessionId = UUID().uuidString

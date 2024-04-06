@@ -39,6 +39,3 @@ struct AuthResponse: Decodable {
         self.token = Token(accessToken: accessToken, refreshToken: refreshToken, expirationDate: expiresAt)
     }
 }
-
-struct LocationResponse: Decodable {
-}

@@ -51,4 +51,3 @@ struct RequestGenerator {
         return request
     }
 }
-
