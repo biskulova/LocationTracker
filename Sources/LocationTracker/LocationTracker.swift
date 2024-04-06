@@ -103,7 +103,7 @@ extension LocationTracker: CLLocationManagerDelegate {
         print("Updated location: \(String(describing: locations.last))")
     }
     
-    private func locationManager(_ manager: CLLocationManager, didFailWithError error: NSError) {
+    public func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         self.continuation?.resume(with: .failure(error))
         self.continuation = nil
 
