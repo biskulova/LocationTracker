@@ -41,24 +41,10 @@ class API {
         }
         
         Task {
-            var request: URLRequest?
-            switch endpointType {
-            case .auth:
-                request = RequestGenerator.authRequest(url: url)
-            case .refreshSession:
-                if let refreshToken = token?.refreshToken {
-                    request = RequestGenerator.refreshRequest(url: url, refreshToken: refreshToken)
-                }
-            case .location:
-                if let authToken = token?.accessToken, let locationData = locationData {
-                    request = RequestGenerator.locationRequest(url: url, token: authToken, location: locationData)
-                }
-            }
-            
-            guard let request = request else {
+            guard let request = RequestGenerator.requestWith(url: url, endpointType: endpointType, token: token, locationData: locationData) else {
                 throw ResponseError.invalidRequest
             }
-            
+
             do {
                 let (data, response) = try await URLSession.shared.data(for: request)
                 guard let httpResponse = response as? HTTPURLResponse else {

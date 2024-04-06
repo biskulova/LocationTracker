@@ -8,13 +8,6 @@
 import Foundation
 
 struct RequestGenerator {
-    static func headers(token: String, isBearer: Bool = false) -> [String : String] {
-        let authToken = isBearer ? "Bearer \(token)" : token
-        
-        return ["application/json": "Content-Type",
-                "Authorization": authToken]
-    }
-    
     static func basicRequest(_ url: URL) -> URLRequest {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -22,7 +15,6 @@ struct RequestGenerator {
         return request
     }
 
-    
     static func authRequest(url: URL) -> URLRequest {
         var request = basicRequest(url)
         request.setValue("Bearer \(Constants.ConfigValues.token)", forHTTPHeaderField: "Authorization")
@@ -43,11 +35,26 @@ struct RequestGenerator {
             Constants.longitude : location.longitude,
             Constants.latitude : location.latitude
         ]
-        let eventData = try? JSONEncoder().encode(data)
-
-        print("Events Data dict for URLRequest has length: \(String(describing: eventData?.count))")
-        assert(eventData != nil, "Failed to create Events Data for URLRequest")
+        
+        request.httpBody = try? JSONEncoder().encode(data)
+        assert(request.httpBody != nil, "Failed to create location data for URLRequest")
 
         return request
+    }
+    
+    static func requestWith(url: URL, endpointType: EndpointType, token: Token?, locationData: LocationData?) -> URLRequest? {
+        switch endpointType {
+        case .auth:
+            return RequestGenerator.authRequest(url: url)
+        case .refreshSession:
+            if let refreshToken = token?.refreshToken {
+                return RequestGenerator.refreshRequest(url: url, refreshToken: refreshToken)
+            }
+        case .location:
+            if let authToken = token?.accessToken, let locationData = locationData {
+                return RequestGenerator.locationRequest(url: url, token: authToken, location: locationData)
+            }
+        }
+        return nil
     }
 }
