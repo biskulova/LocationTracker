@@ -7,11 +7,13 @@
 
 import Foundation
 
-public class API {
+class API {
     
     // TODO: send requests on specific named queue
     
     private var token: Token?
+    
+    public var isAuthorized: Bool = false
     
     func sendRequest(endpointType: EndpointType, locationData: LocationData? = nil) async throws {
         
@@ -35,30 +37,35 @@ public class API {
             }
         
             guard let request = request else {
-                return
+                throw ResponseError.invalidRequest
             }
             
             do {
                 let (data, response) = try await URLSession.shared.data(for: request)
-                guard let httpResponse = response as? HTTPURLResponse else {
-                    return
+                guard let httpResponse = response as? HTTPURLResponse, (200..<299).contains(httpResponse.statusCode) else {
+                    
+                    print("response = \(String(describing: response))")
+                    throw ResponseError.invalidServerResponse
                 }
+                
 
 //                if httpResponse.statusCode == 401 {
 //                    try await refreshToken()
 //                    await sendRequest(endpointType: endpointType, locationData: locationData, completion: completion)
 //                } else {
-                
                 switch endpointType {
                 case .auth:
                     let decodedResponse = try JSONDecoder().decode(AuthResponse.self, from: data)
                     token = decodedResponse.token
+                    isAuthorized = true
                 default:
                     break
                 }
-
-            } catch {
+            } catch ResponseError.invalidServerResponse {
+                print("invalidServerResponse for request: \(request)")
 //                completion(.failure(error))
+            } catch {
+                print("Unexpected error: \(error).")
             }
         }
     }

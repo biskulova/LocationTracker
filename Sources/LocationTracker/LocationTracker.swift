@@ -5,7 +5,6 @@ import Foundation
 import CoreLocation
 import Combine
 
-@MainActor
 public class LocationTracker: NSObject {
     
     private let api = API()
@@ -38,18 +37,28 @@ public class LocationTracker: NSObject {
                         self?.scheduleSendingLocation()
                     }
             }
+        } catch TrackerError.authFailed {
+            print("auth error occured")
         } catch {
-            
+            print("error in 'initialize' occured: \(error)")
         }
     }
 
     public func sendCurrentLocation() async {
-        do {
-            let locationData = try await getCurrentLocation()
-            
-            try await api.sendRequest(endpointType: .location, locationData: locationData)
-        } catch {
-            
+        if api.isAuthorized {
+            do {
+                let locationData = try await getCurrentLocation()
+                
+                try await api.sendRequest(endpointType: .location, locationData: locationData)
+            } catch {
+                print("error in 'sendCurrentLocation' occured: \(error)")
+            }
+        } else {
+            do {
+                try await api.sendRequest(endpointType: .auth)
+            } catch {
+                print("error in auth request in 'sendCurrentLocation' occured: \(error)")
+            }
         }
     }
     
