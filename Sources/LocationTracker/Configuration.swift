@@ -30,10 +30,15 @@ enum Constants {
 }
 
 public struct Configuration {
-    let endpoint: String = Constants.ConfigValues.endpoint
-    let trackingPeriod: TimeInterval = 60 // 1 min
+    var endpoint: String = Constants.ConfigValues.endpoint
+    var trackingPeriod: TimeInterval = 60 // 1 min
 
     private let token: String = Constants.ConfigValues.token
     private let sessionId = UUID().uuidString
+        
+    public init(endpoint: String, trackingPeriod: TimeInterval) {
+        self.endpoint = endpoint
+        self.trackingPeriod = trackingPeriod
+    }
 }
 

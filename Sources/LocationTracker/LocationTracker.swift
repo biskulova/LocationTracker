@@ -17,7 +17,7 @@ public class LocationTracker: NSObject {
     
     // Public
     public static let shared = LocationTracker()
-    public var configuration = Configuration() {
+    public var configuration = Configuration(endpoint: Constants.ConfigValues.endpoint, trackingPeriod: 60) {
         didSet {
             cancellable = nil
             scheduleLocationUpdates()
